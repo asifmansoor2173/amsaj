@@ -1,0 +1,96 @@
+{% extends "store/base.html" %}
+{% load store_extras %}
+{% block title %}Used laptops for sale | AmSaJ Used Laptops{% endblock %}
+{% block content %}
+<h1>Used laptops {% if q %}<small>matching "{{ q }}"</small>{% endif %}</h1>
+
+<div class="shop-layout">
+  <aside class="filters">
+    <form method="get" action="{% url 'laptop_list' %}">
+      {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+      <input type="hidden" name="sort" value="{{ sort }}">
+
+      <details open>
+        <summary>Brand</summary>
+        {% for brand in brand_choices %}
+          <label class="check"><input type="checkbox" name="brand" value="{{ brand.id }}" {% if brand.id|stringformat:"s" in selected.brand %}checked{% endif %}> {{ brand.name }}</label>
+        {% empty %}<p class="muted">No brands yet.</p>{% endfor %}
+      </details>
+
+      <details open>
+        <summary>Price (₹)</summary>
+        <div class="range">
+          <input type="number" name="min_price" min="0" step="500" value="{{ selected.min_price }}" placeholder="Min">
+          <span>to</span>
+          <input type="number" name="max_price" min="0" step="500" value="{{ selected.max_price }}" placeholder="Max">
+        </div>
+      </details>
+
+      <details open>
+        <summary>RAM</summary>
+        {% for ram in ram_choices %}
+          <label class="check"><input type="checkbox" name="ram" value="{{ ram }}" {% if ram|stringformat:"s" in selected.ram %}checked{% endif %}> {{ ram }} GB</label>
+        {% endfor %}
+      </details>
+
+      <details open>
+        <summary>Storage</summary>
+        {% for t in storage_type_choices %}
+          <label class="check"><input type="checkbox" name="storage_type" value="{{ t }}" {% if t in selected.storage_type %}checked{% endif %}> {{ t }}</label>
+        {% endfor %}
+        <label class="field">At least
+          <select name="min_storage">
+            <option value="">Any size</option>
+            <option value="128" {% if selected.min_storage == "128" %}selected{% endif %}>128 GB</option>
+            <option value="256" {% if selected.min_storage == "256" %}selected{% endif %}>256 GB</option>
+            <option value="512" {% if selected.min_storage == "512" %}selected{% endif %}>512 GB</option>
+            <option value="1000" {% if selected.min_storage == "1000" %}selected{% endif %}>1 TB</option>
+          </select>
+        </label>
+      </details>
+
+      <details open>
+        <summary>Screen size</summary>
+        {% for s in screen_choices %}
+          <label class="check"><input type="checkbox" name="screen" value="{{ s }}" {% if s|stringformat:"s" in selected.screen %}checked{% endif %}> {{ s }}&Prime;</label>
+        {% endfor %}
+      </details>
+
+      <div class="filter-actions">
+        <button type="submit" class="button">Apply filters</button>
+        {% if filters_active %}<a href="{% url 'laptop_list' %}" class="clear">Clear all</a>{% endif %}
+      </div>
+    </form>
+  </aside>
+
+  <section class="results">
+    <div class="results-bar">
+      <span>{{ total }} laptop{{ total|pluralize }} found</span>
+      <form method="get" class="sort">
+        {% for key, values in request.GET.lists %}{% if key != 'sort' and key != 'page' %}{% for v in values %}<input type="hidden" name="{{ key }}" value="{{ v }}">{% endfor %}{% endif %}{% endfor %}
+        <label>Sort by
+          <select name="sort" onchange="this.form.submit()">
+            {% for key, label in sorts %}<option value="{{ key }}" {% if key == sort %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <noscript><button type="submit">Sort</button></noscript>
+      </form>
+    </div>
+
+    {% if page.object_list %}
+      <div class="grid">
+        {% for laptop in page.object_list %}{% include "store/_card.html" %}{% endfor %}
+      </div>
+      {% if page.paginator.num_pages > 1 %}
+      <nav class="pager" aria-label="Pages">
+        {% if page.has_previous %}<a href="{% query_without 'page' page=page.previous_page_number %}">&larr; Previous</a>{% endif %}
+        <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="{% query_without 'page' page=page.next_page_number %}">Next &rarr;</a>{% endif %}
+      </nav>
+      {% endif %}
+    {% else %}
+      <p class="empty">No laptops match these filters. <a href="{% url 'laptop_list' %}">Clear the filters</a> to see everything.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

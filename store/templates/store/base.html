@@ -1,0 +1,44 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}AmSaJ Used Laptops{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Used laptops with real photos of every unit, a 2-month warranty and 7-day returns.{% endblock %}">
+  <link rel="stylesheet" href="{% static 'store/style.css' %}">
+</head>
+<body>
+<header class="site-header">
+  <div class="container header-row">
+    <a class="logo" href="{% url 'home' %}">AmSaJ <span>Used Laptops</span></a>
+    <form class="search" action="{% url 'laptop_list' %}" method="get" role="search">
+      <input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search brand, model, CPU..." aria-label="Search laptops">
+      <button type="submit">Search</button>
+    </form>
+    <nav class="nav">
+      <a href="{% url 'laptop_list' %}">Shop all</a>
+      <a href="{% url 'returns_warranty' %}">Returns &amp; warranty</a>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-row">
+    <div>
+      <strong>AmSaJ Used Laptops</strong><br>
+      Every laptop is a single used unit. The photos and videos show the exact laptop you receive.
+    </div>
+    <div>
+      2-month warranty &middot; 7-day returns<br>
+      Pay by card, cash on delivery or bank transfer<br>
+      <a href="{% url 'returns_warranty' %}">Returns &amp; warranty details</a>
+    </div>
+  </div>
+</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

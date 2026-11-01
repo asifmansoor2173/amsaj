@@ -1,0 +1,116 @@
+{% extends "store/base.html" %}
+{% load store_extras %}
+{% block title %}{{ laptop.brand }} {{ laptop.model }} {{ laptop.ram_gb }}GB/{{ laptop.storage_gb }}GB | AmSaJ Used Laptops{% endblock %}
+{% block meta_description %}Used {{ laptop.brand }} {{ laptop.model }}, {{ laptop.cpu }}, {{ laptop.ram_gb }}GB RAM, {{ laptop.storage_gb }}GB {{ laptop.storage_type }}. {{ laptop.warranty_months }}-month warranty.{% endblock %}
+{% block content %}
+<p class="crumbs"><a href="{% url 'home' %}">Home</a> / <a href="{% url 'laptop_list' %}">Laptops</a> / {{ laptop.brand }} {{ laptop.model }}</p>
+
+<div class="detail">
+  <section class="gallery">
+    {% with photos=laptop.photos %}
+      {% if photos %}
+        <div class="gallery-main"><img id="main-photo" src="{{ photos.0.file.url }}" alt="{{ photos.0.alt_text|default:laptop.title }}"></div>
+        {% if photos|length > 1 %}
+        <div class="gallery-thumbs">
+          {% for p in photos %}
+            <a href="{{ p.file.url }}" class="thumb-link" data-full="{{ p.file.url }}" data-alt="{{ p.alt_text|default:laptop.title }}">
+              <img src="{{ p.thumbnail.url }}" alt="{{ p.alt_text|default:laptop.title }}" loading="lazy">
+            </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% else %}
+        <div class="gallery-main"><div class="no-photo">No photo yet</div></div>
+      {% endif %}
+    {% endwith %}
+
+    {% if laptop.videos %}
+    <h2>Videos</h2>
+    <div class="videos">
+      {% for v in laptop.videos %}
+        <video controls preload="none" src="{{ v.file.url }}"></video>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="buy-box">
+    <div class="card-brand">{{ laptop.brand }}</div>
+    <h1>{{ laptop.brand }} {{ laptop.model }}</h1>
+    <p class="muted">{{ laptop.cpu }} &middot; {{ laptop.ram_gb }}GB RAM &middot; {{ laptop.storage_gb }}GB {{ laptop.storage_type }}</p>
+    <div class="price">{{ laptop.price|inr }}</div>
+
+    {% if laptop.status == 'available' %}
+      <p class="badge badge-ok">Only 1 available</p>
+      <button class="button" type="button" disabled>Add to cart</button>
+      <p class="muted small">Online ordering is being added. Check back soon.</p>
+    {% elif laptop.status == 'reserved' %}
+      <p class="badge badge-reserved">Reserved by another customer</p>
+      <p class="muted small">It may come back if the order is not completed.</p>
+    {% else %}
+      <p class="badge badge-sold">Sold</p>
+      <p><a href="{% url 'laptop_list' %}">See other laptops</a></p>
+    {% endif %}
+
+    <ul class="assurance">
+      <li>{{ laptop.warranty_months }}-month warranty</li>
+      <li>7-day returns</li>
+      <li>Pay by card, cash on delivery or bank transfer</li>
+    </ul>
+    <p class="small"><a href="{% url 'returns_warranty' %}">Returns &amp; warranty details</a></p>
+    <p class="muted small">Item code: {{ laptop.sku }}</p>
+  </section>
+</div>
+
+<section class="info">
+  <h2>Condition</h2>
+  <p>{{ laptop.condition|linebreaksbr }}</p>
+  {% if laptop.defects_notes %}
+    <h3>Known issues</h3>
+    <p>{{ laptop.defects_notes|linebreaksbr }}</p>
+  {% endif %}
+  {% if laptop.description %}
+    <h2>About this laptop</h2>
+    <p>{{ laptop.description|linebreaksbr }}</p>
+  {% endif %}
+
+  <h2>Specifications</h2>
+  <table class="specs">
+    <tr><th>Brand</th><td>{{ laptop.brand }}</td></tr>
+    <tr><th>Model</th><td>{{ laptop.model }}</td></tr>
+    <tr><th>CPU</th><td>{{ laptop.cpu }}</td></tr>
+    {% if laptop.gpu %}<tr><th>GPU</th><td>{{ laptop.gpu }}</td></tr>{% endif %}
+    {% if laptop.tpu %}<tr><th>TPU / NPU</th><td>{{ laptop.tpu }}</td></tr>{% endif %}
+    <tr><th>RAM</th><td>{{ laptop.ram_gb }} GB</td></tr>
+    <tr><th>Storage</th><td>{{ laptop.storage_gb }} GB {{ laptop.storage_type }}</td></tr>
+    <tr><th>Screen</th><td>{{ laptop.screen_inches }}&Prime;{% if laptop.resolution %} ({{ laptop.resolution }}){% endif %}</td></tr>
+    {% if laptop.os %}<tr><th>Operating system</th><td>{{ laptop.os }}</td></tr>{% endif %}
+    {% if laptop.battery_health_pct %}<tr><th>Battery health</th><td>{{ laptop.battery_health_pct }}%</td></tr>{% endif %}
+    {% if laptop.keyboard_layout %}<tr><th>Keyboard layout</th><td>{{ laptop.keyboard_layout }}</td></tr>{% endif %}
+    <tr><th>Warranty</th><td>{{ laptop.warranty_months }} months</td></tr>
+  </table>
+</section>
+
+{% if related %}
+<section>
+  <h2>More from {{ laptop.brand }}</h2>
+  <div class="grid">
+    {% for laptop in related %}{% include "store/_card.html" %}{% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Click a small photo to show it large. Without JavaScript the link opens the full photo.
+  document.querySelectorAll('.thumb-link').forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      event.preventDefault();
+      var main = document.getElementById('main-photo');
+      main.src = link.dataset.full;
+      main.alt = link.dataset.alt;
+    });
+  });
+</script>
+{% endblock %}

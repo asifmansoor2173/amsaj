@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-amsaj}
+      POSTGRES_USER: ${POSTGRES_USER:-amsaj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amsaj_dev_password}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-amsaj} -d ${POSTGRES_DB:-amsaj}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
+      DEBUG: ${DEBUG:-1}
+      POSTGRES_DB: ${POSTGRES_DB:-amsaj}
+      POSTGRES_USER: ${POSTGRES_USER:-amsaj}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amsaj_dev_password}
+      POSTGRES_HOST: db
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:

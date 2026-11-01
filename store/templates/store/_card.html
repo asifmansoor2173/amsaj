@@ -1,0 +1,20 @@
+{% load store_extras %}
+<article class="card">
+  <a class="card-image" href="{% url 'laptop_detail' laptop.pk %}">
+    {% with cover=laptop.cover %}
+      {% if cover %}
+        <img src="{{ cover.thumbnail.url }}" alt="{{ cover.alt_text|default:laptop.title }}" loading="lazy">
+      {% else %}
+        <div class="no-photo">No photo yet</div>
+      {% endif %}
+    {% endwith %}
+    {% if laptop.status == 'reserved' %}<span class="badge badge-reserved">Reserved</span>{% endif %}
+  </a>
+  <div class="card-body">
+    <div class="card-brand">{{ laptop.brand }}</div>
+    <h3 class="card-title"><a href="{% url 'laptop_detail' laptop.pk %}">{{ laptop.brand }} {{ laptop.model }}</a></h3>
+    <p class="card-specs">{{ laptop.cpu }}<br>{{ laptop.ram_gb }}GB RAM &middot; {{ laptop.storage_gb }}GB {{ laptop.storage_type }} &middot; {{ laptop.screen_inches }}&Prime;</p>
+    <div class="card-price">{{ laptop.price|inr }}</div>
+    <p class="card-note">{{ laptop.warranty_months }}-month warranty</p>
+  </div>
+</article>

@@ -1,0 +1,30 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:inventory_laptop_changelist' %}">Laptops</a> &rsaquo;
+  <a href="{{ change_url }}">{{ laptop.sku }}</a> &rsaquo; Upload photos / videos
+</div>
+{% endblock %}
+{% block content %}
+<div id="content-main">
+  <p><strong>{{ laptop.title }}</strong></p>
+  <p>{{ shot_list }}</p>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <fieldset class="module aligned">
+      <div class="form-row">
+        {{ form.files.errors }}
+        <label for="{{ form.files.id_for_label }}">{{ form.files.label }}:</label>
+        {{ form.files }}
+        <div class="help">{{ form.files.help_text }}</div>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Upload" class="default">
+      <a href="{{ change_url }}" class="closelink">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

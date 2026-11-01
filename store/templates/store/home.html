@@ -1,0 +1,38 @@
+{% extends "store/base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>Used laptops, shown honestly</h1>
+  <p>Real photos and videos of the exact laptop you buy. 2-month warranty and 7-day returns on every unit.</p>
+  <a class="button" href="{% url 'laptop_list' %}">Shop all laptops</a>
+</section>
+
+<section class="trust">
+  <div><strong>Real photos &amp; videos</strong><span>Of the exact unit, not stock images</span></div>
+  <div><strong>2-month warranty</strong><span>On every laptop</span></div>
+  <div><strong>7-day returns</strong><span>If it is not right, send it back</span></div>
+  <div><strong>Flexible payment</strong><span>Card, cash on delivery or bank transfer</span></div>
+</section>
+
+{% if brands %}
+<section>
+  <h2>Shop by brand</h2>
+  <div class="chips">
+    {% for brand in brands %}
+      <a class="chip" href="{% url 'laptop_list' %}?brand={{ brand.id }}">{{ brand.name }} <small>({{ brand.total }})</small></a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <h2>New arrivals</h2>
+  {% if new_arrivals %}
+    <div class="grid">
+      {% for laptop in new_arrivals %}{% include "store/_card.html" %}{% endfor %}
+    </div>
+    <p class="center"><a class="button button-outline" href="{% url 'laptop_list' %}">See all laptops</a></p>
+  {% else %}
+    <p class="empty">No laptops are listed right now. Please check back soon.</p>
+  {% endif %}
+</section>
+{% endblock %}
