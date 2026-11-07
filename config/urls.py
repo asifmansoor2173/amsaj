@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
+from orders import views as order_views
 from store import views
 
 urlpatterns = [
@@ -27,6 +28,15 @@ urlpatterns = [
     path('laptops/<int:pk>/', views.laptop_detail, name='laptop_detail'),
     path('returns-and-warranty/', views.returns_and_warranty, name='returns_warranty'),
     path('health/', views.health, name='health'),
+    path('cart/', order_views.cart_view, name='cart'),
+    path('cart/add/<int:pk>/', order_views.cart_add, name='cart_add'),
+    path('cart/remove/<int:pk>/', order_views.cart_remove, name='cart_remove'),
+    path('checkout/', order_views.checkout, name='checkout'),
+    path('checkout/quote/', order_views.checkout_quote, name='checkout_quote'),
+    path('orders/<str:token>/', order_views.order_detail, name='order_detail'),
+    path('orders/<str:token>/reference/', order_views.order_bank_reference, name='order_bank_reference'),
+    path('track/', order_views.order_track, name='order_track'),
+    path('pay/test/<str:token>/', order_views.test_gateway, name='test_gateway'),
 ]
 
 # Serve uploaded photos and videos while developing locally.

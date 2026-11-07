@@ -1,0 +1,73 @@
+{% extends "store/base.html" %}
+{% load store_extras %}
+{% block title %}Order {{ order.order_no }} | AmSaJ Used Laptops{% endblock %}
+{% block content %}
+<h1>Order {{ order.order_no }}</h1>
+<p><span class="badge badge-status">{{ order.get_status_display }}</span>
+   <span class="badge badge-sold">Payment: {{ order.get_payment_status_display }}</span></p>
+
+<div class="cart-layout">
+  <div>
+    <section class="panel">
+      <h2>Items</h2>
+      {% for item in order.items.all %}
+        <div class="sum-row"><span>{{ item.title }} <span class="muted small">({{ item.sku }})</span></span><span>{{ item.price|inr }}</span></div>
+      {% endfor %}
+      <hr>
+      <div class="sum-row"><span>Subtotal</span><span>{{ order.subtotal|inr }}</span></div>
+      <div class="sum-row"><span>Delivery</span><span>{% if order.shipping_fee %}{{ order.shipping_fee|inr }}{% else %}Free{% endif %}</span></div>
+      <div class="sum-row total"><span>Total</span><strong>{{ order.total|inr }}</strong></div>
+    </section>
+
+    {% if order.status == 'pending' %}
+    <section class="panel">
+      <h2>What to do next</h2>
+      {% if order.payment_method == 'card' %}
+        <p>Complete your payment to confirm the order. Your laptop is held until {{ order.expires_at|date:"d M Y, h:i A" }}.</p>
+        <a class="button" href="{% url 'test_gateway' order.access_token %}">Pay {{ order.total|inr }} now</a>
+      {% elif order.payment_method == 'bank_transfer' %}
+        <p>Transfer <strong>{{ order.total|inr }}</strong> and quote <strong>{{ order.order_no }}</strong> as the reference. Your laptop is held until {{ order.expires_at|date:"d M Y, h:i A" }}.</p>
+        {% if bank %}
+          <table class="specs">{% for label, value in bank.items %}<tr><th>{{ label }}</th><td>{{ value }}</td></tr>{% endfor %}</table>
+        {% else %}
+          <p class="muted">Our bank details will be shared with you shortly by our team.</p>
+        {% endif %}
+        <form method="post" action="{% url 'order_bank_reference' order.access_token %}" class="inline-form">
+          {% csrf_token %}
+          <label for="ref">Your transfer reference (UTR)</label>
+          <input id="ref" name="bank_reference" value="{{ order.bank_reference }}" maxlength="80">
+          <button class="button" type="submit">Save reference</button>
+        </form>
+      {% else %}
+        <p>You will pay <strong>{{ order.total|inr }}</strong> in cash when the order arrives. Our team will contact you on {{ order.phone }} to confirm. Your laptop is held until {{ order.expires_at|date:"d M Y, h:i A" }}.</p>
+      {% endif %}
+    </section>
+    {% elif order.status == 'cancelled' %}
+    <section class="panel"><p>This order was cancelled{% if order.cancel_reason %}: {{ order.cancel_reason }}{% endif %}.
+      {% if order.payment_status == 'refund_due' %}Your refund is being processed.{% endif %}</p></section>
+    {% endif %}
+
+    {% if order.status == 'shipped' or order.status == 'delivered' %}
+    <section class="panel">
+      <h2>{% if order.delivery_method == 'pickup' %}Pickup{% else %}Shipping{% endif %}</h2>
+      {% if order.delivery_method == 'pickup' %}
+        <p>Ready for pickup at {{ order.pickup_location.name }}, {{ order.pickup_location.address }}.</p>
+      {% elif order.shipment %}
+        <p>Courier: {{ order.shipment.courier }}<br>Tracking number: {{ order.shipment.tracking_no }}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="summary">
+    <h2>Details</h2>
+    <p><strong>{{ order.customer_name }}</strong><br>{{ order.email }}<br>{{ order.phone }}</p>
+    <p class="small">{{ order.address_text }}</p>
+    {% if order.pickup_location and order.pickup_location.schedule %}<p class="muted small">{{ order.pickup_location.schedule }}</p>{% endif %}
+    {% if order.shipping_zone and order.shipping_zone.eta %}<p class="muted small">Delivery: {{ order.shipping_zone.eta }}{% if order.shipping_zone.schedule %}. {{ order.shipping_zone.schedule }}{% endif %}</p>{% endif %}
+    <p class="muted small">Payment method: {{ order.get_payment_method_display }}<br>Placed {{ order.created_at|date:"d M Y, h:i A" }}</p>
+    <p class="small">2-month warranty &middot; 7-day returns. <a href="{% url 'returns_warranty' %}">Details</a></p>
+    <p class="muted small">Keep this page's link to check your order later.</p>
+  </aside>
+</div>
+{% endblock %}

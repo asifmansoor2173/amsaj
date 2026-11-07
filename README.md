@@ -54,7 +54,39 @@ Then open:
 
 Only laptops with status Available or Reserved appear in the listing. Sold laptops keep a
 product page marked "Sold". Draft, Under investigation and Returned laptops are never shown.
-The Add to cart button is a placeholder until the ordering phase.
+
+
+## Phase 4: cart, checkout and orders
+After copying this version in, restart with:
+
+    docker compose up --build
+
+Then, in a second terminal, run these once:
+
+    docker compose exec web python manage.py migrate
+    docker compose exec web python manage.py seed_shipping
+
+(`migrate` also runs automatically when the site starts.) Open http://localhost:8000/admin/ and
+edit **Orders > Shipping zones** and **Pickup locations**: set your real delivery fees, delivery
+times, pickup address and schedule. Put your bank details in a `.env` file (see `.env.example`)
+so customers who choose bank transfer can see them.
+
+Customer flow: laptop page > Add to cart > Cart > Checkout > order page.
+- Card: goes to a TEST payment page (no real money). A real gateway is added later.
+- Bank transfer / Cash on delivery: staff confirm the order in the admin.
+- The laptop is Reserved when the order is placed (15 minutes for card, 24 hours for the others)
+  and goes back to Available automatically if the order is not paid or confirmed in time.
+
+Staff flow: **Orders > Orders**, open an order, use the buttons at the top (Mark payment received,
+Confirm cash on delivery, Start processing, Mark shipped, Mark delivered, Cancel, Mark refund paid).
+Enter the courier and tracking number in the Shipment section and save before Mark shipped.
+**Print invoice** opens a printable invoice and packing slip.
+
+Returns: **Orders > Return cases > Add**, pick the order item. The laptop becomes Under
+investigation. When resolved, use the list actions: "Fixed" puts it back to Available, "Not fixable"
+sets it to Returned (sent back to the supplier).
+
+Order emails are printed in the terminal (docker compose logs -f web) until real email is set up.
 
 ## Useful commands
 - Stop and keep data:       docker compose down

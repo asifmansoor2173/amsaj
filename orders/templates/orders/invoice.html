@@ -1,0 +1,27 @@
+{% load store_extras %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Invoice {{ order.order_no }}</title>
+<style>
+  body { font-family: system-ui, Arial, sans-serif; max-width: 780px; margin: 2rem auto; color: #111; }
+  h1 { margin-bottom: 0; } table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #ccc; }
+  td.r, th.r { text-align: right; } .muted { color: #555; font-size: 0.9rem; }
+  .row { display: flex; justify-content: space-between; gap: 2rem; }
+  @media print { .noprint { display: none; } }
+</style></head>
+<body>
+  <p class="noprint"><button onclick="window.print()">Print</button></p>
+  <h1>AmSaJ Used Laptops</h1>
+  <p class="muted">Invoice / packing slip</p>
+  <div class="row">
+    <div><strong>Bill to</strong><br>{{ order.customer_name }}<br>{{ order.phone }}<br>{{ order.email }}<br>{{ order.address_text }}</div>
+    <div><strong>{{ order.order_no }}</strong><br>Date: {{ order.created_at|date:"d M Y" }}<br>Payment: {{ order.get_payment_method_display }} ({{ order.get_payment_status_display }})</div>
+  </div>
+  <table>
+    <tr><th>Item</th><th>Code</th><th class="r">Price</th></tr>
+    {% for item in order.items.all %}<tr><td>{{ item.title }}</td><td>{{ item.sku }}</td><td class="r">{{ item.price|inr }}</td></tr>{% endfor %}
+    <tr><td colspan="2">Subtotal</td><td class="r">{{ order.subtotal|inr }}</td></tr>
+    <tr><td colspan="2">Delivery</td><td class="r">{{ order.shipping_fee|inr }}</td></tr>
+    <tr><td colspan="2"><strong>Total</strong></td><td class="r"><strong>{{ order.total|inr }}</strong></td></tr>
+  </table>
+  <p class="muted">Used laptop. 2-month warranty and 7-day returns. Thank you for your order.</p>
+</body></html>

@@ -1,0 +1,15 @@
+{% extends "admin/change_form.html" %}
+{% block object-tools-items %}
+  {% if original %}
+    {% for key, label in order_actions %}
+    <li>
+      <form method="post" action="{% url 'admin:orders_order_action' original.pk key %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="button" style="margin-right:6px">{{ label }}</button>
+      </form>
+    </li>
+    {% endfor %}
+    <li><a href="{{ invoice_url }}" target="_blank" class="historylink">Print invoice</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

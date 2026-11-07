@@ -42,8 +42,10 @@
 
     {% if laptop.status == 'available' %}
       <p class="badge badge-ok">Only 1 available</p>
-      <button class="button" type="button" disabled>Add to cart</button>
-      <p class="muted small">Online ordering is being added. Check back soon.</p>
+      <form method="post" action="{% url 'cart_add' laptop.pk %}">
+        {% csrf_token %}
+        <button class="button" type="submit">Add to cart</button>
+      </form>
     {% elif laptop.status == 'reserved' %}
       <p class="badge badge-reserved">Reserved by another customer</p>
       <p class="muted small">It may come back if the order is not completed.</p>

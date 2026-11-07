@@ -1,0 +1,12 @@
+{% extends "store/base.html" %}
+{% block title %}Track your order | AmSaJ Used Laptops{% endblock %}
+{% block content %}
+<article class="prose">
+  <h1>Track your order</h1>
+  <form method="post" class="f-stack">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button class="button" type="submit">Find my order</button>
+  </form>
+</article>
+{% endblock %}

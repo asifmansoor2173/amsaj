@@ -18,11 +18,18 @@
     <nav class="nav">
       <a href="{% url 'laptop_list' %}">Shop all</a>
       <a href="{% url 'returns_warranty' %}">Returns &amp; warranty</a>
+      <a href="{% url 'order_track' %}">Track order</a>
+      <a class="cart-link" href="{% url 'cart' %}">Cart{% if cart_count %} <span class="cart-count">{{ cart_count }}</span>{% endif %}</a>
     </nav>
   </div>
 </header>
 
 <main class="container">
+  {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}<li class="msg msg-{{ message.level_tag }}">{{ message }}</li>{% endfor %}
+    </ul>
+  {% endif %}
   {% block content %}{% endblock %}
 </main>
 

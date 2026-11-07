@@ -117,3 +117,23 @@ class InventoryTests(TestCase):
                                     {"action": "export_csv", "_selected_action": [laptop.pk]})
         self.assertEqual(response["Content-Type"], "text/csv")
         self.assertIn(laptop.sku, response.content.decode())
+
+    def test_editing_laptop_works_when_a_stored_file_is_missing_from_disk(self):
+        """Regression: a missing photo file on disk must not crash the laptop edit page."""
+        import os
+        laptop = make_laptop()
+        media = LaptopMedia.objects.create(laptop=laptop, file=make_image(), is_primary=True)
+        os.remove(media.file.path)
+        url = reverse("admin:inventory_laptop_change", args=[laptop.pk])
+        form = self.client.get(url).context["adminform"].form
+        data = {k: (v if v is not None else "") for k, v in form.initial.items()}
+        data.update({
+            "brand": laptop.brand_id, "status": "draft", "price": "36000",
+            "media-TOTAL_FORMS": 1, "media-INITIAL_FORMS": 1, "media-MIN_NUM_FORMS": 0,
+            "media-MAX_NUM_FORMS": 1000, "media-0-id": media.pk, "media-0-laptop": laptop.pk,
+            "media-0-alt_text": "Top view", "media-0-sort_order": 0, "media-0-is_primary": "on",
+        })
+        response = self.client.post(url, data)
+        self.assertEqual(response.status_code, 302)
+        laptop.refresh_from_db()
+        self.assertEqual(str(laptop.price), "36000.00")

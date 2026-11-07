@@ -1,0 +1,15 @@
+# OPTIONAL. Only use this if your docker-compose.yml does NOT already publish the database port.
+#
+# Why use it: Docker automatically merges "docker-compose.override.yml" into docker-compose.yml.
+# Future project updates (zip files) replace docker-compose.yml but never this file, so your
+# DBeaver access survives updates.
+#
+# To use: copy this file to docker-compose.override.yml (remove ".example").
+# Do NOT use it if docker-compose.yml already has a "ports:" entry under db, or the two will clash.
+#
+# Port 127.0.0.1 means only this computer can connect (recommended). If port 5432 is already
+# used by another PostgreSQL on your computer, set DB_HOST_PORT=5433 in your .env file.
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"

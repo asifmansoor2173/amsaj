@@ -1,0 +1,15 @@
+{% extends "store/base.html" %}
+{% load store_extras %}
+{% block title %}Test payment | AmSaJ Used Laptops{% endblock %}
+{% block content %}
+<article class="prose">
+  <h1>Test payment page</h1>
+  <p class="msg msg-warning">This is a pretend payment page used while the shop runs on your own computer. No money moves. It will be replaced by a real gateway before you go live.</p>
+  <p>Order <strong>{{ order.order_no }}</strong>, amount <strong>{{ order.total|inr }}</strong>.</p>
+  <form method="post" class="actions">
+    {% csrf_token %}
+    <button class="button" name="outcome" value="success" type="submit">Pay successfully</button>
+    <button class="button button-outline" name="outcome" value="fail" type="submit">Cancel payment</button>
+  </form>
+</article>
+{% endblock %}

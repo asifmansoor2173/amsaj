@@ -1,0 +1,34 @@
+{% extends "store/base.html" %}
+{% load store_extras %}
+{% block title %}Your cart | AmSaJ Used Laptops{% endblock %}
+{% block content %}
+<h1>Your cart</h1>
+{% if laptops %}
+  <div class="cart-layout">
+    <div>
+      {% for laptop in laptops %}
+      <div class="cart-row">
+        <a class="cart-thumb" href="{% url 'laptop_detail' laptop.pk %}">
+          {% with cover=laptop.cover %}{% if cover %}<img src="{{ cover.thumbnail.url }}" alt="">{% else %}<div class="no-photo">No photo</div>{% endif %}{% endwith %}
+        </a>
+        <div class="cart-info">
+          <a href="{% url 'laptop_detail' laptop.pk %}"><strong>{{ laptop.brand }} {{ laptop.model }}</strong></a>
+          <div class="muted small">{{ laptop.cpu }} &middot; {{ laptop.ram_gb }}GB RAM &middot; {{ laptop.storage_gb }}GB {{ laptop.storage_type }}</div>
+        </div>
+        <div class="cart-price">{{ laptop.price|inr }}</div>
+        <form method="post" action="{% url 'cart_remove' laptop.pk %}">{% csrf_token %}<button class="link-button" type="submit">Remove</button></form>
+      </div>
+      {% endfor %}
+    </div>
+    <aside class="summary">
+      <h2>Summary</h2>
+      <div class="sum-row"><span>Subtotal</span><strong>{{ subtotal|inr }}</strong></div>
+      <p class="muted small">Delivery is added at checkout. Each laptop is a single used unit, so it is only held for you once you place the order.</p>
+      <a class="button block" href="{% url 'checkout' %}">Checkout</a>
+      <p class="center"><a href="{% url 'laptop_list' %}">Continue shopping</a></p>
+    </aside>
+  </div>
+{% else %}
+  <p class="empty">Your cart is empty. <a href="{% url 'laptop_list' %}">Browse laptops</a></p>
+{% endif %}
+{% endblock %}

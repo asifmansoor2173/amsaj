@@ -1,0 +1,100 @@
+{% extends "store/base.html" %}
+{% load store_extras %}
+{% block title %}Checkout | AmSaJ Used Laptops{% endblock %}
+{% block content %}
+<h1>Checkout</h1>
+<form method="post" class="cart-layout" id="checkout-form" data-subtotal="{{ subtotal }}" data-quote-url="{% url 'checkout_quote' %}">
+  {% csrf_token %}
+  <div>
+    {% if form.non_field_errors %}<div class="msg msg-error">{{ form.non_field_errors }}</div>{% endif %}
+
+    <fieldset class="panel">
+      <legend>Your details</legend>
+      <div class="f">{{ form.customer_name.label_tag }}{{ form.customer_name }}{{ form.customer_name.errors }}</div>
+      <div class="f">{{ form.email.label_tag }}{{ form.email }}{{ form.email.errors }}</div>
+      <div class="f">{{ form.phone.label_tag }}{{ form.phone }}{{ form.phone.errors }}</div>
+    </fieldset>
+
+    <fieldset class="panel">
+      <legend>Delivery</legend>
+      <div class="radios">{% for radio in form.delivery_method %}<label>{{ radio.tag }} {{ radio.choice_label }}</label>{% endfor %}</div>
+      <div id="delivery-fields">
+        <div class="f">{{ form.address_line1.label_tag }}{{ form.address_line1 }}{{ form.address_line1.errors }}</div>
+        <div class="f">{{ form.address_line2.label_tag }}{{ form.address_line2 }}</div>
+        <div class="f">{{ form.city.label_tag }}{{ form.city }}{{ form.city.errors }}</div>
+        <div class="f">{{ form.state.label_tag }}{{ form.state }}{{ form.state.errors }}</div>
+        <div class="f">{{ form.pin_code.label_tag }}{{ form.pin_code }}{{ form.pin_code.errors }}</div>
+      </div>
+      <div id="pickup-fields">
+        <div class="f">{{ form.pickup_location.label_tag }}{{ form.pickup_location }}{{ form.pickup_location.errors }}</div>
+      </div>
+      <p id="quote-note" class="muted small"></p>
+    </fieldset>
+
+    <fieldset class="panel">
+      <legend>Payment</legend>
+      <div class="radios stacked">{% for radio in form.payment_method %}<label>{{ radio.tag }} {{ radio.choice_label }}</label>{% endfor %}</div>
+      {{ form.payment_method.errors }}
+      <p class="muted small">Card: pay online now (the laptop is held for 15 minutes). Cash on delivery and bank transfer: the laptop is held for 24 hours until we confirm.</p>
+      <div class="f">{{ form.customer_notes.label_tag }}{{ form.customer_notes }}</div>
+    </fieldset>
+  </div>
+
+  <aside class="summary">
+    <h2>Order summary</h2>
+    {% for laptop in laptops %}
+      <div class="sum-row"><span>{{ laptop.brand }} {{ laptop.model }}</span><span>{{ laptop.price|inr }}</span></div>
+    {% endfor %}
+    <hr>
+    <div class="sum-row"><span>Subtotal</span><span>{{ subtotal|inr }}</span></div>
+    <div class="sum-row"><span>Delivery</span><span id="fee-display">Calculated from your state</span></div>
+    <div class="sum-row total"><span>Total</span><strong id="total-display">{{ subtotal|inr }}</strong></div>
+    <button class="button block" type="submit">Place order</button>
+    <p class="muted small">By placing the order you agree to our <a href="{% url 'returns_warranty' %}">returns and warranty</a> terms.</p>
+  </aside>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById('checkout-form');
+  var subtotal = parseFloat(form.dataset.subtotal);
+  var feeEl = document.getElementById('fee-display'), totalEl = document.getElementById('total-display'), note = document.getElementById('quote-note');
+  var delivery = document.getElementById('delivery-fields'), pickup = document.getElementById('pickup-fields');
+  function method() { return form.querySelector('input[name=delivery_method]:checked').value; }
+  function rupees(n) {
+    var s = Math.round(n).toString(), last = s.slice(-3), rest = s.slice(0, -3);
+    if (rest) { rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ','); return '\u20B9' + rest + ',' + last; }
+    return '\u20B9' + last;
+  }
+  function toggle() {
+    var isPickup = method() === 'pickup';
+    delivery.style.display = isPickup ? 'none' : '';
+    pickup.style.display = isPickup ? '' : 'none';
+  }
+  function quote() {
+    toggle();
+    var m = method(), url = form.dataset.quoteUrl + '?method=' + m;
+    if (m === 'delivery') {
+      var state = form.querySelector('[name=state]').value;
+      if (!state) { feeEl.textContent = 'Calculated from your state'; totalEl.textContent = rupees(subtotal); note.textContent = ''; return; }
+      url += '&state=' + encodeURIComponent(state);
+    } else {
+      var loc = form.querySelector('[name=pickup_location]').value;
+      if (!loc) { feeEl.textContent = 'Free'; totalEl.textContent = rupees(subtotal); note.textContent = ''; return; }
+      url += '&pickup=' + encodeURIComponent(loc);
+    }
+    fetch(url).then(function (r) { return r.json(); }).then(function (q) {
+      if (q.ok) {
+        feeEl.textContent = q.fee_display;
+        totalEl.textContent = rupees(subtotal + parseFloat(q.fee));
+        note.textContent = q.detail || '';
+      } else { feeEl.textContent = '-'; totalEl.textContent = rupees(subtotal); note.textContent = q.message; }
+    });
+  }
+  form.addEventListener('change', quote);
+  quote();
+})();
+</script>
+{% endblock %}

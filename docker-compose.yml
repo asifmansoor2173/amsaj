@@ -26,6 +26,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-amsaj}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amsaj_dev_password}
       POSTGRES_HOST: db
+      SITE_URL: ${SITE_URL:-http://localhost:8000}
+      PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-test}
+      BANK_ACCOUNT_NAME: ${BANK_ACCOUNT_NAME:-}
+      BANK_NAME: ${BANK_NAME:-}
+      BANK_ACCOUNT_NUMBER: ${BANK_ACCOUNT_NUMBER:-}
+      BANK_IFSC: ${BANK_IFSC:-}
+      BANK_UPI_ID: ${BANK_UPI_ID:-}
     volumes:
       - .:/app
     depends_on:

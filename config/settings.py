@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'store',
     'inventory',
+    'orders',
 ]
 
 MIDDLEWARE = [
@@ -49,6 +50,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'orders.middleware.ReleaseExpiredReservationsMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -64,6 +66,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'orders.context_processors.cart',
             ],
         },
     },
@@ -139,3 +142,27 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Media files (laptop photos and videos) will be stored here during local deployment.
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# ---- Shop settings (Phase 4) ----
+STORE_NAME = "AmSaJ Used Laptops"
+SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "orders@amsaj.local")
+# Emails are printed in the terminal while running locally. Set real SMTP settings when you go live.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+
+# How long a laptop stays reserved for an unpaid order.
+RESERVATION_MINUTES_CARD = int(os.environ.get("RESERVATION_MINUTES_CARD", "15"))
+RESERVATION_HOURS_OTHER = int(os.environ.get("RESERVATION_HOURS_OTHER", "24"))   # bank transfer and cash on delivery
+RELEASE_EXPIRED_ON_REQUEST = True
+
+# "test" is a pretend payment page for local use. Replace with a real gateway before going live.
+PAYMENT_GATEWAY = os.environ.get("PAYMENT_GATEWAY", "test")
+
+# Shown to customers who choose bank transfer. Fill these in .env.
+BANK_DETAILS = {
+    "Account name": os.environ.get("BANK_ACCOUNT_NAME", ""),
+    "Bank": os.environ.get("BANK_NAME", ""),
+    "Account number": os.environ.get("BANK_ACCOUNT_NUMBER", ""),
+    "IFSC code": os.environ.get("BANK_IFSC", ""),
+    "UPI ID": os.environ.get("BANK_UPI_ID", ""),
+}

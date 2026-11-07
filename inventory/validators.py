@@ -19,6 +19,10 @@ def media_kind(filename):
 
 
 def validate_media_file(f):
+    # Files that are already saved were checked when they were uploaded. Skipping them
+    # means editing a laptop still works even if a stored file is missing from disk.
+    if getattr(f, "_committed", False):
+        return
     kind = media_kind(f.name)
     if kind is None:
         raise ValidationError(
