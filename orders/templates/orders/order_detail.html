@@ -62,8 +62,12 @@
   <aside class="summary">
     <h2>Details</h2>
     <p><strong>{{ order.customer_name }}</strong><br>{{ order.email }}<br>{{ order.phone }}</p>
-    <p class="small">{{ order.address_text }}</p>
-    {% if order.pickup_location and order.pickup_location.schedule %}<p class="muted small">{{ order.pickup_location.schedule }}</p>{% endif %}
+    {% if order.delivery_method == 'pickup' and order.pickup_location %}
+      <p class="small"><strong>Pickup location</strong><br>{{ order.pickup_location.name }}<br>{{ order.pickup_location.address|linebreaksbr }}</p>
+      {% if order.pickup_location.schedule %}<p class="muted small">Pickup schedule: {{ order.pickup_location.schedule }}</p>{% endif %}
+    {% else %}
+      <p class="small">{{ order.address_text }}</p>
+    {% endif %}
     {% if order.shipping_zone and order.shipping_zone.eta %}<p class="muted small">Delivery: {{ order.shipping_zone.eta }}{% if order.shipping_zone.schedule %}. {{ order.shipping_zone.schedule }}{% endif %}</p>{% endif %}
     <p class="muted small">Payment method: {{ order.get_payment_method_display }}<br>Placed {{ order.created_at|date:"d M Y, h:i A" }}</p>
     <p class="small">2-month warranty &middot; 7-day returns. <a href="{% url 'returns_warranty' %}">Details</a></p>

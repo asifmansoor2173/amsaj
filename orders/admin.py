@@ -4,6 +4,9 @@ from django.urls import path, reverse
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
 
+from activity import logger as activity
+from activity.admin_mixin import AuditedAdminMixin
+
 from . import services
 from .models import Order, OrderItem, Payment, PickupLocation, ReturnCase, Shipment, ShippingZone
 from .services import OrderError
@@ -60,7 +63,7 @@ def _bulk_action(key):
 
 
 @admin.register(Order)
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(AuditedAdminMixin, admin.ModelAdmin):
     change_form_template = "admin/orders/order/change_form.html"
     inlines = [OrderItemInline, PaymentInline, ShipmentInline]
     list_display = ["order_no", "created_at", "customer_name", "phone", "total", "payment_method",
@@ -71,7 +74,7 @@ class OrderAdmin(admin.ModelAdmin):
     actions = [_bulk_action(k) for k in ("confirm_payment", "confirm_cod", "processing", "shipped",
                                          "delivered", "cancel", "refunded")]
     fieldsets = [
-        ("Order", {"fields": ["order_no", "status", "payment_status", "payment_method", "created_at",
+        ("Order", {"fields": ["order_no", "transaction_id", "status", "payment_status", "payment_method", "created_at",
                               "confirmed_at", "expires_at", "cancel_reason"]}),
         ("Customer", {"fields": ["customer_name", "email", "phone", "customer_notes"]}),
         ("Delivery", {"fields": ["delivery_method", "address_line1", "address_line2", "city", "state",
@@ -82,7 +85,7 @@ class OrderAdmin(admin.ModelAdmin):
     # Everything is read-only except the bank reference and staff notes. Status changes go
     # through the buttons, so the stock rules (reserved, sold, available) are always applied.
     readonly_fields = [
-        "order_no", "status", "payment_status", "payment_method", "created_at", "confirmed_at", "expires_at",
+        "order_no", "transaction_id", "status", "payment_status", "payment_method", "created_at", "confirmed_at", "expires_at",
         "cancel_reason", "customer_name", "email", "phone", "customer_notes", "delivery_method",
         "address_line1", "address_line2", "city", "state", "pin_code", "shipping_zone", "pickup_location",
         "subtotal", "shipping_fee", "total",
@@ -107,13 +110,16 @@ class OrderAdmin(admin.ModelAdmin):
         extra_context = extra_context or {}
         order = Order.objects.filter(pk=object_id).first()
         if order:
+            activity.bind_order(order)
             extra_context["order_actions"] = services.available_actions(order)
+            extra_context["trace_url"] = reverse("admin:activity_activitylog_trace", args=[order.order_no])
             extra_context["invoice_url"] = reverse("admin:orders_order_invoice", args=[order.pk])
         return super().change_view(request, object_id, form_url, extra_context)
 
     @method_decorator(require_POST)
     def run_action(self, request, object_id, key):
         order = get_object_or_404(Order, pk=object_id)
+        activity.bind_order(order)
         change_url = reverse("admin:orders_order_change", args=[order.pk])
         if key not in dict(services.available_actions(order)):
             self.message_user(request, "That action is not available for this order right now.", messages.ERROR)
@@ -122,22 +128,34 @@ class OrderAdmin(admin.ModelAdmin):
             services.ACTIONS[key][1](order)
             self.message_user(request, f"Done: {services.ACTIONS[key][0]}.")
         except OrderError as error:
+            activity.log("order.action_rejected", f"{services.ACTIONS[key][0]} refused: {error}", level="WARNING",
+                         order=order, details={"action": key, "reason": str(error)})
             self.message_user(request, str(error), messages.ERROR)
         return redirect(change_url)
 
     def invoice(self, request, object_id):
         order = get_object_or_404(Order.objects.prefetch_related("items"), pk=object_id)
+        activity.bind_order(order)
+        activity.log("order.invoice_printed", f"Invoice for {order.order_no} opened", order=order)
         return render(request, "orders/invoice.html", {"order": order})
 
 
 @admin.register(ShippingZone)
-class ShippingZoneAdmin(admin.ModelAdmin):
+class ShippingZoneAdmin(AuditedAdminMixin, admin.ModelAdmin):
     list_display = ["name", "fee", "eta", "schedule", "is_default", "active"]
 
 
 @admin.register(PickupLocation)
-class PickupLocationAdmin(admin.ModelAdmin):
-    list_display = ["name", "schedule", "active"]
+class PickupLocationAdmin(AuditedAdminMixin, admin.ModelAdmin):
+    """Pickup locations customers can choose at checkout. Only 'Active' ones are shown."""
+    list_display = ["name", "address_short", "schedule", "active"]
+    list_editable = ["active"]
+    list_filter = ["active"]
+    search_fields = ["name", "address"]
+
+    @admin.display(description="Address")
+    def address_short(self, obj):
+        return (obj.address[:70] + "...") if len(obj.address) > 70 else obj.address
 
 
 @admin.action(description="Fixed: put the laptop back in stock (Available)")
@@ -159,7 +177,7 @@ def return_to_supplier(modeladmin, request, queryset):
 
 
 @admin.register(ReturnCase)
-class ReturnCaseAdmin(admin.ModelAdmin):
+class ReturnCaseAdmin(AuditedAdminMixin, admin.ModelAdmin):
     list_display = ["order_item", "outcome", "opened_at", "closed_at"]
     list_filter = ["outcome"]
     actions = [return_fixed, return_to_supplier]

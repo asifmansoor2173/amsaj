@@ -14,6 +14,7 @@ class Command(BaseCommand):
             self.stdout.write("Created a default shipping zone. Set its fee in the admin.")
         if not PickupLocation.objects.exists():
             PickupLocation.objects.create(
-                name="Store pickup", address="Set the pickup address in the admin", schedule="Set the pickup schedule")
-            self.stdout.write("Created a pickup location. Set its address in the admin.")
+                name="Store pickup", address="Set the pickup address in the admin", schedule="", active=False)
+            self.stdout.write("Created a pickup location that is switched OFF. Fill in its address and schedule in the "
+                              "admin (Orders > Pickup locations), then tick Active so customers can choose it.")
         self.stdout.write(self.style.SUCCESS("Done."))

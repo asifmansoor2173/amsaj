@@ -299,3 +299,77 @@ class OrderAdminTests(TestCase):
         self.assertEqual(self.order.status, "cancelled")
         self.assertEqual(self.client.get(reverse("admin:orders_returncase_add")).status_code, 200)
         self.assertEqual(self.client.get(reverse("admin:orders_shippingzone_changelist")).status_code, 200)
+
+
+class PickupConfigurationTests(TestCase):
+    """Pickup locations are configured in the admin and chosen by the customer at checkout."""
+
+    def setUp(self):
+        ShippingZone.objects.create(name="Rest of India", fee="199", is_default=True)
+        self.laptop = add_laptop(photo=False)
+        self.client.post(reverse("cart_add", args=[self.laptop.pk]))
+
+    def test_no_active_location_means_pickup_is_not_offered(self):
+        PickupLocation.objects.create(name="Hidden", address="Somewhere", active=False)
+        response = self.client.get(reverse("checkout"))
+        self.assertFalse(response.context["form"].pickup_available)
+        self.assertContains(response, "Pickup is not available at the moment")
+        self.assertNotContains(response, 'value="pickup"')
+        # Posting pickup anyway is rejected.
+        self.client.post(reverse("checkout"), form_data(delivery_method="pickup"))
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_inactive_locations_are_not_selectable(self):
+        PickupLocation.objects.create(name="Open shop", address="1 Main Road", active=True)
+        off = PickupLocation.objects.create(name="Closed shop", address="2 Side Road", active=False)
+        response = self.client.get(reverse("checkout"))
+        self.assertContains(response, "Open shop")
+        self.assertNotContains(response, "Closed shop")
+        self.client.post(reverse("checkout"), form_data(delivery_method="pickup", pickup_location=off.pk))
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_checkout_page_carries_address_and_schedule_for_the_picker(self):
+        PickupLocation.objects.create(name="Open shop", address="1 Main Road", schedule="Mon-Sat 10-6")
+        response = self.client.get(reverse("checkout"))
+        data = response.context["pickup_data"]
+        (place,) = data.values()
+        self.assertEqual((place["name"], place["address"], place["schedule"]),
+                         ("Open shop", "1 Main Road", "Mon-Sat 10-6"))
+        self.assertContains(response, "pickup-data")
+
+    def test_single_location_is_preselected(self):
+        location = PickupLocation.objects.create(name="Only shop", address="1 Main Road")
+        form = self.client.get(reverse("checkout")).context["form"]
+        self.assertEqual(form.fields["pickup_location"].initial, location.pk)
+
+    def test_several_locations_require_a_choice(self):
+        PickupLocation.objects.create(name="Shop A", address="A road")
+        PickupLocation.objects.create(name="Shop B", address="B road")
+        self.client.post(reverse("checkout"), form_data(delivery_method="pickup"))
+        self.assertEqual(Order.objects.count(), 0)
+
+    def test_pickup_order_shows_location_on_order_page_and_is_free(self):
+        shop_a = PickupLocation.objects.create(name="Shop A", address="A road, Kochi", schedule="Mon-Sat 10-6")
+        PickupLocation.objects.create(name="Shop B", address="B road")
+        self.client.post(reverse("checkout"), form_data(
+            delivery_method="pickup", pickup_location=shop_a.pk, address_line1="", city="", state="", pin_code=""))
+        order = Order.objects.get()
+        self.assertEqual((order.pickup_location, order.shipping_fee), (shop_a, 0))
+        page = self.client.get(reverse("order_detail", args=[order.access_token]))
+        self.assertContains(page, "A road, Kochi")
+        self.assertContains(page, "Mon-Sat 10-6")
+
+    def test_delivery_order_ignores_a_pickup_choice(self):
+        shop = PickupLocation.objects.create(name="Shop A", address="A road")
+        self.client.post(reverse("checkout"), form_data(delivery_method="delivery", pickup_location=shop.pk))
+        order = Order.objects.get()
+        self.assertIsNone(order.pickup_location)
+
+    def test_admin_can_manage_pickup_locations(self):
+        admin_user = get_user_model().objects.create_superuser("boss", "b@example.com", "pw")
+        self.client.force_login(admin_user)
+        self.assertEqual(self.client.get(reverse("admin:orders_pickuplocation_changelist")).status_code, 200)
+        response = self.client.post(reverse("admin:orders_pickuplocation_add"), {
+            "name": "Main shop", "address": "12 Market Road, Kochi", "schedule": "Mon-Sat 10-6", "active": "on"})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(PickupLocation.objects.get(name="Main shop").active)

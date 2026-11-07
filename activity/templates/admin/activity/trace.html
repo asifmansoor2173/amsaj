@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+  <a href="{% url 'admin:activity_activitylog_changelist' %}">Activity log</a> &rsaquo; Trace</div>
+{% endblock %}
+{% block content %}
+<div id="content-main">
+  <form method="get" action="{% url 'admin:activity_activitylog_trace_search' %}" style="margin-bottom:1rem">
+    <input type="text" name="q" value="{{ key }}" size="38"
+           placeholder="Order number, transaction id, laptop code, event id or request id">
+    <input type="submit" value="Trace">
+  </form>
+  {% if key and not groups %}<p>No activity found for <strong>{{ key }}</strong>.</p>{% endif %}
+  {% if groups %}<p>{{ count }} event{{ count|pluralize }} in {{ groups|length }} flow{{ groups|length|pluralize }}, oldest first.</p>{% endif %}
+  {% for group in groups %}
+    <h2>Transaction {{ group.transaction_id }}</h2>
+    <table style="width:100%">
+      <thead><tr><th>Time</th><th>Level</th><th>Action</th><th>Who</th><th>What happened</th><th>Order</th><th>Laptop</th></tr></thead>
+      <tbody>
+      {% for row in group.events %}
+        {% with e=row.obj %}
+        <tr>
+          <td style="white-space:nowrap">{{ e.occurred_at|date:"d M Y H:i:s" }}</td>
+          <td>{{ e.level }}</td>
+          <td><strong>{{ e.action }}</strong></td>
+          <td>{{ e.actor_type }}{% if e.actor_name %}: {{ e.actor_name }}{% endif %}</td>
+          <td>{{ e.message }}
+            {% if e.http_method %}<div class="help">{{ e.http_method }} {{ e.path }}{% if e.status_code %} &rarr; {{ e.status_code }}{% endif %}{% if e.duration_ms is not None %} ({{ e.duration_ms }} ms){% endif %}{% if e.ip_address %} &middot; {{ e.ip_address }}{% endif %}</div>{% endif %}
+            {% if row.details %}<details><summary>Details</summary><pre style="white-space:pre-wrap">{{ row.details }}</pre></details>{% endif %}
+          </td>
+          <td>{{ e.order_no }}</td><td>{{ e.laptop_sku }}</td>
+        </tr>
+        {% endwith %}
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -17,6 +17,11 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Git Bash on Windows silently rewrites arguments that look like Unix paths (for example /tmp/x.sql
+# becomes C:/Users/.../Temp/x.sql) before handing them to Docker. Switch that off.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
 DO_PULL=0; DO_TEST=0; DO_BACKUP=1; UPDATE_PATH=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -128,10 +133,16 @@ if [ "$DO_BACKUP" -eq 1 ]; then
     DB_USER="$(docker compose exec -T db printenv POSTGRES_USER | tr -d '\r')"
     DB_NAME="$(docker compose exec -T db printenv POSTGRES_DB | tr -d '\r')"
     STAMP="$(date +%Y%m%d_%H%M%S)"
-    docker compose exec -T db pg_dump -U "$DB_USER" -d "$DB_NAME" -f "/tmp/backup_$STAMP.sql"
-    docker compose cp "db:/tmp/backup_$STAMP.sql" "backups/amsaj_$STAMP.sql"
-    docker compose exec -T db rm -f "/tmp/backup_$STAMP.sql"
-    echo "Saved backups/amsaj_$STAMP.sql"
+    BACKUP_FILE="backups/amsaj_$STAMP.sql"
+    if ! docker compose exec -T db pg_dump -U "$DB_USER" -d "$DB_NAME" > "$BACKUP_FILE"; then
+      rm -f "$BACKUP_FILE"
+      fail "The database backup failed, so nothing was changed. Fix the error above, or run again with --no-backup to skip the backup."
+    fi
+    if ! grep -q "PostgreSQL database dump" "$BACKUP_FILE"; then
+      rm -f "$BACKUP_FILE"
+      fail "The backup file was empty or incomplete, so it was discarded. Run again with --no-backup to skip the backup."
+    fi
+    echo "Saved $BACKUP_FILE ($(wc -c < "$BACKUP_FILE") bytes)"
     # keep only the 10 newest backups
     ls -1t backups/amsaj_*.sql 2>/dev/null | tail -n +11 | while read -r old; do rm -f -- "$old"; done
   else
@@ -163,8 +174,8 @@ echo "Website is up."
 # 6. Database setup (safe to run every time) --------------------------------
 step "Applying database migrations and starter data"
 docker compose exec -T web python manage.py migrate --noinput
-# The starter-data steps are optional: a failure here is shown as a warning and does not stop the deployment.
-for seed in seed_brands seed_shipping; do
+# The starter-data and photo-resize steps are optional: a failure here is shown as a warning and does not stop the deployment.
+for seed in seed_brands seed_shipping regenerate_images; do
   docker compose exec -T web python manage.py "$seed" \
     || echo "WARNING: '$seed' failed or does not exist in this version of the project. Skipping it."
 done
@@ -210,6 +221,7 @@ cat <<MSG
 Deployment finished.
   Shop:   http://localhost:8000/
   Admin:  http://localhost:8000/admin/
-  Logs:   docker compose logs -f web
+  Logs:   logs/activity.log (every activity) and logs/app.log (problems); live: docker compose logs -f web
+  Trace:  docker compose exec web python manage.py trace ORD-000001
   Stop:   docker compose down        (keeps your data; never add -v)
 MSG

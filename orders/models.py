@@ -83,6 +83,9 @@ class Order(models.Model):
         PICKUP = "pickup", "Pickup"
 
     order_no = models.CharField(max_length=20, unique=True, editable=False, blank=True)
+    transaction_id = models.CharField(
+        max_length=20, blank=True, db_index=True, editable=False,
+        help_text="Links every log entry of this order, from the first cart click to delivery and returns.")
     access_token = models.CharField(max_length=40, unique=True, default=new_token, editable=False)
 
     customer_name = models.CharField(max_length=120)
@@ -131,7 +134,9 @@ class Order(models.Model):
     @property
     def address_text(self):
         if self.delivery_method == self.Delivery.PICKUP:
-            return f"Pickup: {self.pickup_location}" if self.pickup_location else "Pickup"
+            if self.pickup_location:
+                return f"Pickup: {self.pickup_location.name}, {self.pickup_location.address}"
+            return "Pickup"
         parts = [self.address_line1, self.address_line2, self.city, f"{self.state} {self.pin_code}".strip()]
         return ", ".join(p for p in parts if p)
 

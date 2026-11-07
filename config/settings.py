@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
+import tempfile
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -41,6 +43,7 @@ INSTALLED_APPS = [
     'store',
     'inventory',
     'orders',
+    'activity',
 ]
 
 MIDDLEWARE = [
@@ -50,6 +53,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'activity.middleware.ActivityMiddleware',
     'orders.middleware.ReleaseExpiredReservationsMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -165,4 +169,40 @@ BANK_DETAILS = {
     "Account number": os.environ.get("BANK_ACCOUNT_NUMBER", ""),
     "IFSC code": os.environ.get("BANK_IFSC", ""),
     "UPI ID": os.environ.get("BANK_UPI_ID", ""),
+}
+
+
+# ---- Activity logging (Phase 5) ----
+# Every activity is written to a log file (logs/activity.log, one JSON object per line) AND to the
+# ActivityLog table (admin > Activity log). Application problems go to logs/app.log.
+ACTIVITY_LOG_REQUESTS = True    # also record every page request (not static files or media)
+LOG_DIR = Path(os.environ.get("LOG_DIR", BASE_DIR / "logs"))
+if len(sys.argv) > 1 and sys.argv[1] == "test":
+    LOG_DIR = Path(tempfile.mkdtemp(prefix="amsaj_logs_"))   # tests never write into your real logs
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {"()": "activity.logfmt.JsonLinesFormatter"},
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "activity_file": {
+            "class": "logging.handlers.RotatingFileHandler", "filename": str(LOG_DIR / "activity.log"),
+            "maxBytes": 5 * 1024 * 1024, "backupCount": 20, "formatter": "json", "encoding": "utf-8", "delay": True,
+        },
+        "app_file": {
+            "class": "logging.handlers.RotatingFileHandler", "filename": str(LOG_DIR / "app.log"),
+            "maxBytes": 5 * 1024 * 1024, "backupCount": 10, "formatter": "plain", "encoding": "utf-8", "delay": True,
+        },
+        "console": {"class": "logging.StreamHandler", "formatter": "plain",
+                    "level": "CRITICAL" if (len(sys.argv) > 1 and sys.argv[1] == "test") else "INFO"},
+    },
+    "loggers": {
+        "amsaj.activity": {"handlers": ["activity_file", "console"], "level": "INFO", "propagate": False},
+        "amsaj.app": {"handlers": ["app_file", "console"], "level": "INFO", "propagate": False},
+        "django.request": {"handlers": ["app_file", "console"], "level": "WARNING", "propagate": False},
+    },
 }

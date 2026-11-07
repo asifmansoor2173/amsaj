@@ -7,8 +7,12 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from activity import logger as activity
+from activity.admin_mixin import AuditedAdminMixin
+
 from .forms import BulkMediaUploadForm
 from .models import Brand, Laptop, LaptopMedia, Supplier
+from .status import set_status
 
 admin.site.site_header = "AmSaJ Used Laptops"
 admin.site.site_title = "AmSaJ Admin"
@@ -21,12 +25,12 @@ SHOT_LIST = (
 
 
 @admin.register(Brand)
-class BrandAdmin(admin.ModelAdmin):
+class BrandAdmin(AuditedAdminMixin, admin.ModelAdmin):
     search_fields = ["name"]
 
 
 @admin.register(Supplier)
-class SupplierAdmin(admin.ModelAdmin):
+class SupplierAdmin(AuditedAdminMixin, admin.ModelAdmin):
     list_display = ["name", "contact"]
     search_fields = ["name", "contact"]
 
@@ -42,9 +46,9 @@ class LaptopMediaInline(admin.TabularInline):
         if not obj.pk:
             return "-"
         if obj.kind == "image" and obj.thumbnail:
-            return format_html('<img src="{}" style="height:70px;border-radius:4px">', obj.thumbnail.url)
+            return format_html('<img src="{}" style="width:96px;height:72px;object-fit:contain;background:#fff;border:1px solid #ddd;border-radius:4px">', obj.thumbnail.url)
         if obj.kind == "video":
-            return format_html('<video src="{}" style="height:70px" controls preload="none"></video>', obj.file.url)
+            return format_html('<video src="{}" style="width:96px;height:72px;object-fit:contain;background:#000" controls preload="none"></video>', obj.file.url)
         return "-"
 
 
@@ -53,8 +57,7 @@ def mark_available(modeladmin, request, queryset):
     done = 0
     for laptop in queryset:
         if laptop.has_photo:
-            laptop.status = Laptop.Status.AVAILABLE
-            laptop.save(update_fields=["status", "updated_at"])
+            set_status(Laptop.objects.filter(pk=laptop.pk), Laptop.Status.AVAILABLE, "published by staff")
             done += 1
         else:
             modeladmin.message_user(request, f"{laptop.sku} has no photo, so it was not published.", messages.WARNING)
@@ -65,7 +68,7 @@ def mark_available(modeladmin, request, queryset):
 def _status_action(status, label):
     @admin.action(description=f"Mark selected as {label}")
     def action(modeladmin, request, queryset):
-        count = queryset.update(status=status)
+        count = set_status(queryset, status, f"staff action: {label}")
         modeladmin.message_user(request, f"{count} laptop(s) marked {label}.")
 
     action.__name__ = f"mark_{status}"
@@ -80,16 +83,21 @@ mark_returned = _status_action(Laptop.Status.RETURNED, "Returned to supplier")
 @admin.action(description="Duplicate selected (copies the specs, not photos)")
 def duplicate_laptops(modeladmin, request, queryset):
     for laptop in queryset:
+        source_sku = laptop.sku
         laptop.pk = None
         laptop.sku = ""
         laptop.serial_number = None
         laptop.status = Laptop.Status.DRAFT
         laptop.save()
+        activity.log("laptop.duplicated", f"{source_sku} duplicated as {laptop.sku}", laptop=laptop,
+                     object_type="laptop", object_id=laptop.pk, details={"source_sku": source_sku})
     modeladmin.message_user(request, "Duplicated as drafts. Add the serial number and photos for each.")
 
 
 @admin.action(description="Export selected to CSV")
 def export_csv(modeladmin, request, queryset):
+    activity.log("laptop.exported", f"{queryset.count()} laptops exported to CSV",
+                 details={"skus": list(queryset.values_list("sku", flat=True)[:100])})
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="laptops.csv"'
     writer = csv.writer(response)
@@ -103,7 +111,7 @@ def export_csv(modeladmin, request, queryset):
 
 
 @admin.register(Laptop)
-class LaptopAdmin(admin.ModelAdmin):
+class LaptopAdmin(AuditedAdminMixin, admin.ModelAdmin):
     change_form_template = "admin/inventory/laptop/change_form.html"
     inlines = [LaptopMediaInline]
     list_display = ["thumb", "sku", "title", "price", "status", "ram_gb", "storage_gb", "photo_count", "video_count"]
@@ -134,7 +142,7 @@ class LaptopAdmin(admin.ModelAdmin):
         if not photos:
             return "-"
         photos.sort(key=lambda m: (not m.is_primary, m.sort_order, m.id))
-        return format_html('<img src="{}" style="height:48px;border-radius:4px">', photos[0].thumbnail.url)
+        return format_html('<img src="{}" style="width:64px;height:48px;object-fit:contain;background:#fff;border:1px solid #ddd;border-radius:4px">', photos[0].thumbnail.url)
 
     @admin.display(description="Photos")
     def photo_count(self, obj):
@@ -152,8 +160,7 @@ class LaptopAdmin(admin.ModelAdmin):
         super().save_related(request, form, formsets, change)
         laptop = form.instance
         if laptop.status == Laptop.Status.AVAILABLE and not laptop.has_photo:
-            laptop.status = Laptop.Status.DRAFT
-            laptop.save(update_fields=["status", "updated_at"])
+            set_status(Laptop.objects.filter(pk=laptop.pk), Laptop.Status.DRAFT, "no photo, cannot be available")
             self.message_user(
                 request,
                 "A laptop needs at least one photo before it can be Available. It was saved as Draft.",
@@ -186,8 +193,13 @@ class LaptopAdmin(admin.ModelAdmin):
                         media.is_primary = True
                         had_primary = True
                     media.save()
+                activity.log("media.uploaded", f"{len(files)} file(s) uploaded for {laptop.sku}", laptop=laptop,
+                             object_type="laptop", object_id=laptop.pk,
+                             details={"files": [{"name": f.name, "size": f.size} for f in files]})
                 self.message_user(request, f"{len(files)} file(s) uploaded.")
                 return redirect(change_url)
+            activity.log("media.rejected", f"Upload for {laptop.sku} rejected", level="WARNING", laptop=laptop,
+                         details={"errors": form.errors.get("files", [])})
         else:
             form = BulkMediaUploadForm()
         context = {

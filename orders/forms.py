@@ -24,7 +24,16 @@ class CheckoutForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["pickup_location"].queryset = PickupLocation.objects.filter(active=True)
+        active = PickupLocation.objects.filter(active=True)
+        self.fields["pickup_location"].queryset = active
+        self.pickup_available = active.exists()
+        if not self.pickup_available:
+            # No pickup location is configured: only offer delivery.
+            self.fields["delivery_method"].choices = [(Order.Delivery.DELIVERY, Order.Delivery.DELIVERY.label)]
+        elif active.count() == 1:
+            # A single location is chosen for the customer.
+            self.fields["pickup_location"].initial = active.first().pk
+            self.fields["pickup_location"].empty_label = None
 
     def clean_phone(self):
         digits = re.sub(r"\D", "", self.cleaned_data["phone"])
@@ -55,6 +64,8 @@ class CheckoutForm(forms.Form):
         data = dict(self.cleaned_data)
         location = data.pop("pickup_location", None)
         data["pickup_location_id"] = location.pk if location else None
+        if data["delivery_method"] == Order.Delivery.DELIVERY:
+            data["pickup_location_id"] = None
         if data["delivery_method"] == Order.Delivery.PICKUP:
             for field in ("address_line1", "address_line2", "city", "state", "pin_code"):
                 data[field] = ""

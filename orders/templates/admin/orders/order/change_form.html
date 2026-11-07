@@ -9,6 +9,7 @@
       </form>
     </li>
     {% endfor %}
+    <li><a href="{{ trace_url }}" class="historylink">Activity trace</a></li>
     <li><a href="{{ invoice_url }}" target="_blank" class="historylink">Print invoice</a></li>
   {% endif %}
   {{ block.super }}

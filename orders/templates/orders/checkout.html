@@ -18,6 +18,7 @@
     <fieldset class="panel">
       <legend>Delivery</legend>
       <div class="radios">{% for radio in form.delivery_method %}<label>{{ radio.tag }} {{ radio.choice_label }}</label>{% endfor %}</div>
+      {% if not form.pickup_available %}<p class="muted small">Pickup is not available at the moment. We deliver to your address.</p>{% endif %}
       <div id="delivery-fields">
         <div class="f">{{ form.address_line1.label_tag }}{{ form.address_line1 }}{{ form.address_line1.errors }}</div>
         <div class="f">{{ form.address_line2.label_tag }}{{ form.address_line2 }}</div>
@@ -27,7 +28,9 @@
       </div>
       <div id="pickup-fields">
         <div class="f">{{ form.pickup_location.label_tag }}{{ form.pickup_location }}{{ form.pickup_location.errors }}</div>
+        <div id="pickup-info" class="pickup-info" hidden></div>
       </div>
+      {{ pickup_data|json_script:"pickup-data" }}
       <p id="quote-note" class="muted small"></p>
     </fieldset>
 
@@ -68,6 +71,23 @@
     if (rest) { rest = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ','); return '\u20B9' + rest + ',' + last; }
     return '\u20B9' + last;
   }
+  var pickupData = JSON.parse(document.getElementById('pickup-data').textContent);
+  var info = document.getElementById('pickup-info');
+  function showPickup() {
+    var select = form.querySelector('[name=pickup_location]');
+    var place = select ? pickupData[select.value] : null;
+    info.textContent = '';
+    if (method() !== 'pickup' || !place) { info.hidden = true; return; }
+    var name = document.createElement('strong'); name.textContent = place.name;
+    info.appendChild(name);
+    info.appendChild(document.createElement('br'));
+    info.appendChild(document.createTextNode(place.address));
+    if (place.schedule) {
+      info.appendChild(document.createElement('br'));
+      info.appendChild(document.createTextNode('Pickup schedule: ' + place.schedule));
+    }
+    info.hidden = false;
+  }
   function toggle() {
     var isPickup = method() === 'pickup';
     delivery.style.display = isPickup ? 'none' : '';
@@ -75,6 +95,7 @@
   }
   function quote() {
     toggle();
+    showPickup();
     var m = method(), url = form.dataset.quoteUrl + '?method=' + m;
     if (m === 'delivery') {
       var state = form.querySelector('[name=state]').value;

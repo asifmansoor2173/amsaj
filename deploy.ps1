@@ -196,8 +196,8 @@ Write-Host "Website is up."
 # 6. Database setup (safe to run every time) --------------------------------
 Step "Applying database migrations and starter data"
 Run docker compose exec -T web python manage.py migrate --noinput
-# The starter-data steps are optional: a failure here is shown as a warning and does not stop the deployment.
-foreach ($seed in @("seed_brands", "seed_shipping")) {
+# The starter-data and photo-resize steps are optional: a failure here is shown as a warning and does not stop the deployment.
+foreach ($seed in @("seed_brands", "seed_shipping", "regenerate_images")) {
     docker compose exec -T web python manage.py $seed
     if ($LASTEXITCODE -ne 0) {
         Write-Host "WARNING: '$seed' failed or does not exist in this version of the project. Skipping it." -ForegroundColor Yellow
@@ -242,5 +242,6 @@ Write-Host ""
 Write-Host "Deployment finished." -ForegroundColor Green
 Write-Host "  Shop:   http://localhost:8000/"
 Write-Host "  Admin:  http://localhost:8000/admin/"
-Write-Host "  Logs:   docker compose logs -f web"
+Write-Host "  Logs:   logs\activity.log (every activity) and logs\app.log (problems); live view: docker compose logs -f web"
+Write-Host "  Trace:  docker compose exec web python manage.py trace ORD-000001"
 Write-Host "  Stop:   docker compose down        (keeps your data; never add -v)"

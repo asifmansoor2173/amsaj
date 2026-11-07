@@ -52,7 +52,29 @@ class InventoryTests(TestCase):
         self.assertTrue(media.file.name.endswith(".webp"))
         self.assertTrue(media.thumbnail.name.endswith(".webp"))
         with Image.open(media.file.path) as img:
-            self.assertLessEqual(max(img.size), 1600)
+            self.assertEqual(img.size, (1200, 900))
+        with Image.open(media.thumbnail.path) as img:
+            self.assertEqual(img.size, (400, 300))
+
+    def test_every_photo_shape_ends_up_the_same_size(self):
+        laptop = make_laptop()
+        shapes = {"wide": (4000, 1500), "tall": (800, 3000), "square": (1000, 1000), "tiny": (200, 120)}
+        for name, size in shapes.items():
+            media = LaptopMedia.objects.create(laptop=laptop, file=make_image(f"{name}.jpg", size=size))
+            with Image.open(media.file.path) as img:
+                self.assertEqual(img.size, (1200, 900), name)
+            with Image.open(media.thumbnail.path) as img:
+                self.assertEqual(img.size, (400, 300), name)
+
+    def test_png_with_transparency_is_flattened(self):
+        laptop = make_laptop()
+        buf = BytesIO()
+        Image.new("RGBA", (600, 400), (255, 0, 0, 0)).save(buf, format="PNG")
+        upload = SimpleUploadedFile("t.png", buf.getvalue(), content_type="image/png")
+        media = LaptopMedia.objects.create(laptop=laptop, file=upload)
+        with Image.open(media.file.path) as img:
+            self.assertEqual(img.mode, "RGB")
+            self.assertEqual(img.getpixel((5, 5)), (255, 255, 255))
 
     def test_only_one_primary_photo(self):
         laptop = make_laptop()

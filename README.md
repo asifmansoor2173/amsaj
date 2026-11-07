@@ -71,6 +71,11 @@ edit **Orders > Shipping zones** and **Pickup locations**: set your real deliver
 times, pickup address and schedule. Put your bank details in a `.env` file (see `.env.example`)
 so customers who choose bank transfer can see them.
 
+Pickup locations: add them in **Orders > Pickup locations** (name, address, pickup schedule) and tick
+**Active**. Customers who choose Pickup at checkout pick one of the active locations and see its address
+and schedule. With no active location, the Pickup option is hidden. The starter location created by
+`seed_shipping` is switched off until you fill it in and tick Active.
+
 Customer flow: laptop page > Add to cart > Cart > Checkout > order page.
 - Card: goes to a TEST payment page (no real money). A real gateway is added later.
 - Bank transfer / Cash on delivery: staff confirm the order in the admin.
@@ -87,6 +92,38 @@ investigation. When resolved, use the list actions: "Fixed" puts it back to Avai
 sets it to Returned (sent back to the supplier).
 
 Order emails are printed in the terminal (docker compose logs -f web) until real email is set up.
+
+## Phase 5: activity logging and uniform photos
+
+Every activity is recorded in two places with the same information:
+1. **Log file** `logs/activity.log` in your project folder: one JSON line per event (problems also go to
+   `logs/app.log`). Files rotate at 5 MB. The `logs` folder is not sent to Git.
+2. **Database table** shown in the admin as **Activity log > Activity log entries**: time, level, action,
+   who did it, IP address, page, order number, laptop code and a details box with the values.
+
+Each row has two ids:
+- **Event id**: unique for that single row.
+- **Transaction id** (`TXN-...`): shared by the whole story. A customer's transaction starts at the first
+  "Add to cart" click and continues through checkout, payment, shipping, delivery and any return. Staff
+  actions on an order join the same transaction. Other staff activity gets its own id per request.
+
+Find the whole story of an order:
+- Admin: open the order and click **Activity trace**, or Activity log > **Trace an order or transaction**
+  and type an order number, transaction id, laptop code (AMS-000001) or event id.
+- Terminal: `docker compose exec web python manage.py trace ORD-000001`
+
+What is logged: page requests, cart changes, checkout problems, orders, every order status change,
+payments (success, failure, refund due), laptop status changes with the reason, emails, returns, photo
+uploads, staff sign-in and sign-out and failed sign-ins, and every staff create/change/delete with old and
+new values, and errors. Entries cannot be edited or deleted from the admin. Customer email and phone are
+masked (r***@example.com, ******3210), passwords and private order links are never logged.
+Settings in `config/settings.py`: `ACTIVITY_LOG_REQUESTS = False` stops page-request rows. Times use the
+timezone in settings (Asia/Kolkata). To delete old rows on purpose:
+`docker compose exec web python manage.py purge_activity_logs --days 365` (never runs by itself).
+
+Uniform photos: every photo is now saved at exactly 1200x900 (thumbnails 400x300), shrunk to fit and
+centred on white so nothing is cropped. Photos uploaded earlier are resized by
+`docker compose exec web python manage.py regenerate_images` (run automatically by deploy.ps1).
 
 ## Useful commands
 - Stop and keep data:       docker compose down

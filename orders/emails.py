@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.urls import reverse
 
+from activity import logger as activity
 from store.templatetags.store_extras import inr
 
 
@@ -16,8 +17,11 @@ def _lines(order):
 def _send(order, subject, body):
     footer = (f"\nView your order: {order_url(order)}\n\n"
               f"{settings.STORE_NAME}\n2-month warranty and 7-day returns on every laptop.")
-    send_mail(f"{subject} - {order.order_no}", body + footer, settings.DEFAULT_FROM_EMAIL,
-              [order.email], fail_silently=True)
+    subject = f"{subject} - {order.order_no}"
+    sent = send_mail(subject, body + footer, settings.DEFAULT_FROM_EMAIL, [order.email], fail_silently=True)
+    activity.log("email.sent" if sent else "email.failed", f"Email '{subject}' to {activity.mask_email(order.email)}",
+                 level="INFO" if sent else "WARNING", order=order,
+                 details={"to": activity.mask_email(order.email), "subject": subject})
 
 
 def order_placed(order):
@@ -42,7 +46,8 @@ def order_confirmed(order):
 def order_shipped(order):
     shipment = getattr(order, "shipment", None)
     if order.delivery_method == order.Delivery.PICKUP:
-        detail = f"It is ready for pickup at {order.pickup_location}."
+        detail = (f"It is ready for pickup at {order.pickup_location.name}, {order.pickup_location.address}."
+                  + (f"\nPickup schedule: {order.pickup_location.schedule}" if order.pickup_location.schedule else ""))
     else:
         detail = f"Courier: {shipment.courier or '-'}\nTracking number: {shipment.tracking_no or '-'}" if shipment else ""
     _send(order, "Your order is on its way" if order.delivery_method == order.Delivery.DELIVERY else "Your order is ready",
