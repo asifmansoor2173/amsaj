@@ -1,6 +1,6 @@
 # AmSaJ Used Laptops - starter project
 
-A "hello world" Django site running in Docker with a PostgreSQL database.
+A  Django site running in Docker with a PostgreSQL database used for Sale of Old laptops
 
 ## What you need installed (once)
 1. Git: https://git-scm.com/downloads
